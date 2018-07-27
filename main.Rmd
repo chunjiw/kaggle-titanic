@@ -1,0 +1,69 @@
+---
+title: "Data Exploration"
+author: "Chunji Wang"
+date: "July 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(xgboost)
+library(AUC)
+```
+
+```{r}
+train0 <- read_csv("train.csv")
+set.seed(0)
+passenger <- train0 %>% 
+  mutate(Split = sample(c(0,1), size = n(), replace = TRUE, prob = c(9,1))) %>% 
+  select(-PassengerId, -Name, -Ticket, -Cabin) %>% 
+  unclass %>% as.data.frame() %>% as.tibble() %>% 
+  mutate(Sex = as.integer(Sex == "female"), Embarked = as.integer(Embarked))
+
+train <- passenger %>% filter(Split == 0)
+test <- passenger %>% filter(Split == 1)
+
+set.seed(1)
+xgbcv <- xgb.cv(
+  nfold = 5,
+  data = train %>% select(-Survived) %>% as.matrix(),
+  label = train$Survived,
+  nrounds = 500,
+  print_every_n = 50,
+  eta = 0.1,
+  max_depth = 2,
+  objective = "binary:logistic",
+  eval_metric = "auc",
+  early_stopping_rounds = 50
+)
+
+bst <- xgboost(
+  data = train %>% select(-Survived) %>% as.matrix(),
+  label = train$Survived,
+  nrounds = 50,
+  print_every_n = 10,
+  eta = 0.1,
+  max_depth = 2,
+  objective = "binary:logistic",
+  eval_metric = "auc"
+)
+
+predictions <- predict(bst, newdata = test %>% select(-Survived) %>% as.matrix())
+auc(roc(predictions, labels = test$Survived %>% as.factor))
+auc(roc(test$Sex, test$Survived %>% as.factor))
+
+# All female survive model
+mean(test$Sex == test$Survived)
+
+test %>% 
+  mutate(Predictions = predictions) %>% 
+  arrange(Predictions) %>% 
+  mutate(Predsurv = row_number() > 0.6 * n()) %>% 
+  summarize(mean(Predsurv == Survived))
+
+```
+
