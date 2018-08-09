@@ -16,6 +16,31 @@ library(AUC)
 ```
 
 ```{r}
+train0 <- read_csv("train.csv") %>% 
+  mutate(Sex = as.integer(Sex == "female"))
+```
+
+We can achieve `r mean(train0$Sex == train0$Survived)` accuracy if we predict all female survived.
+```{r}
+train0 %>% summarise(mean(Sex == Survived))
+```
+
+### Impute Embarked
+```{r}
+# No apparent correlation with Sex
+train0 %>% group_by(Embarked, Sex) %>% count
+#
+train0 %>% group_by(Embarked) %>% summarize(mean(Parch))
+
+train0 %>% ggplot(aes(x = Parch)) +
+  geom_bar(aes(fill = Embarked))
+```
+
+
+
+
+
+```{r}
 train0 <- read_csv("train.csv")
 set.seed(0)
 passenger <- train0 %>% 
